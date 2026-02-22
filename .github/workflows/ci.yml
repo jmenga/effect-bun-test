@@ -26,3 +26,12 @@ jobs:
 
       - name: Test
         run: bun test
+
+      - name: Require changeset
+        run: |
+          if ls .changeset/*.md 1>/dev/null 2>&1 && [ "$(ls .changeset/*.md | grep -v README.md)" ]; then
+            echo "Changeset found"
+          else
+            echo "::error::No changeset found. Run 'bun run changeset' and commit the generated file."
+            exit 1
+          fi
