@@ -5,11 +5,12 @@ This project uses [changesets](https://github.com/changesets/changesets) for ver
 ## How it works
 
 1. **You make changes** and create a changeset describing what changed
-2. **You open a PR** — CI runs typechecks and tests
-3. **PR merges to main** — the release workflow runs automatically
-4. The workflow bumps `package.json`, updates `CHANGELOG.md`, commits the version bump, publishes to NPM, and creates a GitHub release with a git tag
+2. **You open a PR** — CI runs typechecks, build, and tests
+3. **CI applies the version bump** — if changesets are present, CI runs `changeset version` and commits the bumped `package.json` and `CHANGELOG.md` back to the PR branch
+4. **You review and merge the PR** — the version bump is part of the PR diff
+5. **Release workflow detects the new version** — compares `package.json` version against what's published on NPM. If it's new, it builds, publishes, and creates a GitHub release with a git tag
 
-One merge = one release. No intermediate "version packages" PR.
+Nothing is pushed directly to main — all changes arrive via PR merge.
 
 ## Creating a changeset
 
@@ -112,7 +113,7 @@ The issue triage workflow uses Claude via AWS Bedrock to automatically review an
 
 The release workflow needs these GitHub token permissions (already configured in the workflow file):
 
-- **contents: write** — to push version bump commits, create tags, and create GitHub releases
+- **contents: write** — to create tags and GitHub releases (CI also needs this to commit version bumps to PR branches)
 - **id-token: write** — for NPM provenance (optional, proves the package was built by CI)
 
 Ensure your repository's Actions permissions allow these:
