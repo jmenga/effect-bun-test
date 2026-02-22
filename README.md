@@ -2,12 +2,14 @@
 
 Effect test helpers for Bun's built-in test runner.
 
-This library ports the [`@effect/vitest`](https://github.com/Effect-TS/effect-smol/tree/main/packages/vitest) API to [`bun:test`](https://bun.sh/docs/cli/test), providing first-class support for running Effect programs in Bun's test runner — including test services (`TestClock`, `TestConsole`), automatic scoping, property-based testing, and all standard test modifiers.
+This library ports the [`@effect/vitest`](https://github.com/Effect-TS/effect/tree/main/packages/vitest) API to [`bun:test`](https://bun.sh/docs/cli/test), providing first-class support for running Effect programs in Bun's test runner — including test services (`TestClock`, `TestConsole`), scoping, property-based testing, and all standard test modifiers.
+
+Supports both Effect v3 and Effect v4 (effect-smol).
 
 ## Requirements
 
 - [Bun](https://bun.sh) >= 1.0
-- [Effect](https://effect.website) >= 4.0.0-beta.10
+- [Effect](https://effect.website) v3 (`^3.0.0`) or v4 (`^4.0.0-beta.10`)
 
 ## Installation
 
@@ -19,8 +21,10 @@ bun add effect-bun-test
 
 | API | Description |
 |---|---|
-| `it.effect` | Run an Effect test with `TestClock` + `TestConsole`, auto-scoped |
-| `it.live` | Run an Effect test without test services, auto-scoped |
+| `it.effect` | Run an Effect test with test services. Auto-scoped in v4; not in v3 |
+| `it.scoped` | Run an Effect test with test services, auto-scoped (v3 only) |
+| `it.live` | Run an Effect test without test services. Auto-scoped in v4; not in v3 |
+| `it.scopedLive` | Run an Effect test without test services, auto-scoped (v3 only) |
 | `it.effect.skip` | Skip an Effect test |
 | `it.effect.only` | Run only this Effect test |
 | `it.effect.skipIf(cond)` | Skip when condition is truthy |
@@ -31,6 +35,8 @@ bun add effect-bun-test
 | `it.prop` | Property-based test (non-Effect) |
 | `it.flakyTest` | Retry an Effect up to 10 times within a timeout |
 | `layer(L)` | Share a Layer across tests with `beforeAll`/`afterAll` lifecycle |
+
+> In Effect v4, `it.effect` and `it.live` auto-scope, so `it.scoped` and `it.scopedLive` are not needed.
 
 ## Writing Tests
 
@@ -53,20 +59,35 @@ describe("my tests", () => {
 })
 ```
 
-### Providing layers per-test
+### Defining services
 
-The standard pattern is to pipe layers directly to individual tests using `Effect.provide`. Each test gets a fresh layer instance.
+Services are defined differently between Effect v3 and v4:
 
+**Effect v4:**
 ```ts
-import { describe, expect } from "bun:test"
-import { it } from "effect-bun-test"
 import { Effect, Layer, ServiceMap } from "effect"
 
 interface Greeter {
   readonly greet: (name: string) => Effect.Effect<string>
 }
 const Greeter = ServiceMap.Service<Greeter>("app/Greeter")
+```
 
+**Effect v3:**
+```ts
+import { Context, Effect, Layer } from "effect"
+
+interface Greeter {
+  readonly greet: (name: string) => Effect.Effect<string>
+}
+const Greeter = Context.GenericTag<Greeter>("app/Greeter")
+```
+
+### Providing layers per-test
+
+The standard pattern is to pipe layers directly to individual tests using `Effect.provide`. Each test gets a fresh layer instance.
+
+```ts
 const GreeterLive = Layer.succeed(Greeter)({
   greet: (name) => Effect.succeed(`Hello, ${name}!`)
 })
@@ -102,9 +123,17 @@ it.effect("uses multiple services", () =>
 
 `it.effect` provides `TestClock` automatically. Use `TestClock.adjust` to advance time without waiting.
 
+**Effect v4:**
 ```ts
 import { TestClock } from "effect/testing"
+```
 
+**Effect v3:**
+```ts
+import * as TestClock from "effect/TestClock"
+```
+
+```ts
 it.effect("advances time via TestClock", () =>
   Effect.gen(function*() {
     const before = yield* Effect.clockWith((clock) => clock.currentTimeMillis)
@@ -115,14 +144,28 @@ it.effect("advances time via TestClock", () =>
 )
 ```
 
-### Auto-scoping
+### Scoped tests
 
-`it.effect` (and `it.live`) automatically apply `Effect.scoped`, so finalizers run at the end of each test:
+Tests that use `Effect.addFinalizer` or other scoped resources need scope management.
+
+**Effect v4** — `it.effect` auto-scopes, so no special handling is needed:
 
 ```ts
-import { Ref } from "effect"
-
 it.effect("auto-scopes resources", () =>
+  Effect.gen(function*() {
+    const ref = yield* Ref.make(0)
+    yield* Effect.addFinalizer(() => Ref.set(ref, 99))
+    const before = yield* Ref.get(ref)
+    expect(before).toBe(0)
+    // finalizer runs automatically after this test
+  })
+)
+```
+
+**Effect v3** — use `it.scoped` (or `it.scopedLive` for live tests):
+
+```ts
+it.scoped("runs finalizers at end of test", () =>
   Effect.gen(function*() {
     const ref = yield* Ref.make(0)
     yield* Effect.addFinalizer(() => Ref.set(ref, 99))
@@ -135,11 +178,24 @@ it.effect("auto-scopes resources", () =>
 
 ### Handling failures
 
+**Effect v4:**
 ```ts
 it.effect("handles failures", () =>
   Effect.gen(function*() {
     const result = yield* Effect.fail("boom").pipe(
       Effect.catch(() => Effect.succeed("recovered"))
+    )
+    expect(result).toBe("recovered")
+  })
+)
+```
+
+**Effect v3:**
+```ts
+it.effect("handles failures", () =>
+  Effect.gen(function*() {
+    const result = yield* Effect.fail("boom").pipe(
+      Effect.catchAll(() => Effect.succeed("recovered"))
     )
     expect(result).toBe("recovered")
   })
@@ -161,7 +217,7 @@ it.live("uses real clock", () =>
 
 ### Modifiers
 
-All standard `bun:test` modifiers are available on `it.effect`:
+All standard `bun:test` modifiers are available on `it.effect` (and `it.scoped` in v3):
 
 ```ts
 // Skip a test
@@ -268,6 +324,7 @@ it.effect.prop(
 
 For expensive resources (database connections, server instances) or tests that intentionally share state, use `layer()` to build a layer once in `beforeAll` and tear it down in `afterAll`:
 
+**Effect v4:**
 ```ts
 import { describe, expect } from "bun:test"
 import { it, layer } from "effect-bun-test"
@@ -278,7 +335,23 @@ interface Counter {
   readonly increment: Effect.Effect<void>
 }
 const Counter = ServiceMap.Service<Counter>("app/Counter")
+```
 
+**Effect v3:**
+```ts
+import { describe, expect } from "bun:test"
+import { it, layer } from "effect-bun-test"
+import { Context, Effect, Layer } from "effect"
+
+interface Counter {
+  readonly get: Effect.Effect<number>
+  readonly increment: Effect.Effect<void>
+}
+const Counter = Context.GenericTag<Counter>("app/Counter")
+```
+
+**Shared (both versions):**
+```ts
 const CounterLive = Layer.effect(
   Counter,
   Effect.gen(function*() {
@@ -324,14 +397,11 @@ Effect services are interfaces resolved from the environment, which makes them s
 
 ### Full example
 
+**Effect v4:**
 ```ts
 import { beforeEach, describe, expect, mock } from "bun:test"
 import { it } from "effect-bun-test"
 import { Effect, Layer, ServiceMap } from "effect"
-
-// ---------------------------------------------------------------------------
-// Service definitions
-// ---------------------------------------------------------------------------
 
 interface UserRepository {
   readonly findById: (id: string) => Effect.Effect<{ id: string; name: string } | null>
@@ -343,11 +413,29 @@ interface NotificationService {
   readonly test: () => Effect.Effect<void>
 }
 const NotificationService = ServiceMap.Service<NotificationService>("app/NotificationService")
+```
 
-// ---------------------------------------------------------------------------
+**Effect v3:**
+```ts
+import { beforeEach, describe, expect, mock } from "bun:test"
+import { it } from "effect-bun-test"
+import { Context, Effect, Layer } from "effect"
+
+interface UserRepository {
+  readonly findById: (id: string) => Effect.Effect<{ id: string; name: string } | null>
+}
+const UserRepository = Context.GenericTag<UserRepository>("app/UserRepository")
+
+interface NotificationService {
+  readonly send: (userId: string, message: string) => Effect.Effect<void>
+  readonly test: () => Effect.Effect<void>
+}
+const NotificationService = Context.GenericTag<NotificationService>("app/NotificationService")
+```
+
+**Shared (both versions):**
+```ts
 // Business logic under test
-// ---------------------------------------------------------------------------
-
 const notifyUser = (userId: string, message: string) =>
   Effect.gen(function*() {
     const repo = yield* UserRepository
@@ -360,19 +448,12 @@ const notifyUser = (userId: string, message: string) =>
     return { sent: true, to: user.name }
   })
 
-// ---------------------------------------------------------------------------
 // 1. Create dynamically typed mocks
-// ---------------------------------------------------------------------------
-
 const mockFindById = mock()
 const mockSend = mock()
 
-// ---------------------------------------------------------------------------
 // 2. Wire mocks into test layers using Layer.mock
-// ---------------------------------------------------------------------------
-
 // Layer.mock accepts a partial implementation — only mock the methods you need.
-// This is preferable to Layer.succeed which requires the full service interface.
 const TestUserRepository = Layer.mock(UserRepository)({
   findById: mockFindById
 })
@@ -384,18 +465,12 @@ const TestNotificationService = Layer.mock(NotificationService)({
 
 const TestLayer = Layer.mergeAll(TestUserRepository, TestNotificationService)
 
-// ---------------------------------------------------------------------------
 // 3. Set defaults in beforeEach, provide layer per-test
-// ---------------------------------------------------------------------------
-
 describe("notifyUser", () => {
   beforeEach(() => {
     mockFindById.mockClear()
     mockSend.mockClear()
 
-    // Default implementations:
-    // - Use mockImplementation for methods with logic
-    // - Use mockReturnValue(Effect.void) for side-effect methods
     mockFindById.mockImplementation((id: string) =>
       Effect.succeed(id === "user-1" ? { id: "user-1", name: "Alice" } : null)
     )
@@ -411,18 +486,8 @@ describe("notifyUser", () => {
     }).pipe(Effect.provide(TestLayer))
   )
 
-  it.effect("fails for non-existent user", () =>
-    Effect.gen(function*() {
-      const result = yield* notifyUser("user-999", "hi").pipe(
-        Effect.catch((e) => Effect.succeed({ error: (e as Error).message }))
-      )
-      expect(result).toEqual({ error: "User user-999 not found" })
-    }).pipe(Effect.provide(TestLayer))
-  )
-
   it.effect("can override mock per-test", () =>
     Effect.gen(function*() {
-      // Override for this test only — beforeEach resets for the next test
       mockFindById.mockReturnValue(
         Effect.succeed({ id: "user-42", name: "Bob" })
       )
@@ -455,8 +520,8 @@ import {
   assertFalse,        // Falsy assertion
   assertNone,         // Option is None
   assertSome,         // Option is Some with expected value
-  assertRight,        // Result is Success with expected value
-  assertLeft,         // Result is Failure with expected value
+  assertRight,        // Either is Right (v3) / Result is Success (v4)
+  assertLeft,         // Either is Left (v3) / Result is Failure (v4)
   assertExitSuccess,  // Exit is Success with expected value
   assertExitFailure,  // Exit is Failure with expected Cause
   deepStrictEqual,    // Structural equality (toStrictEqual)
@@ -470,13 +535,24 @@ import {
 } from "effect-bun-test/utils"
 ```
 
+## API Differences Between v3 and v4
+
+| Concern | Effect v3 | Effect v4 |
+|---|---|---|
+| Service tags | `Context.GenericTag<T>("id")` | `ServiceMap.Service<T>("id")` |
+| TestClock import | `import * as TestClock from "effect/TestClock"` | `import { TestClock } from "effect/testing"` |
+| Scoping | `it.scoped` / `it.scopedLive` (explicit) | `it.effect` / `it.live` auto-scope |
+| Error recovery | `Effect.catchAll` | `Effect.catch` |
+| Either/Result | `Either` (`.right` / `.left`) | `Result` (`.success` / `.failure`) |
+
 ## API Mapping from @effect/vitest
 
 | @effect/vitest | effect-bun-test | Notes |
 |---|---|---|
 | `it.effect(name, (ctx) => ...)` | `it.effect(name, () => ...)` | No TestContext param (Bun has none) |
+| `it.scoped(name, (ctx) => ...)` | `it.scoped(name, () => ...)` | v3 only; v4 auto-scopes via `it.effect` |
 | `it.live(name, (ctx) => ...)` | `it.live(name, () => ...)` | Same |
-| `it.scoped` | N/A | Removed in Effect v4 — `it.effect` auto-scopes |
+| `it.scopedLive(name, (ctx) => ...)` | `it.scopedLive(name, () => ...)` | v3 only; v4 auto-scopes via `it.live` |
 | `it.effect.fails` | `it.effect.failing` | Bun's name; `fails` alias also available |
 | `it.effect.runIf(cond)` | `it.effect.if(cond)` | Bun's name; `runIf` alias also available |
 | `it.effect.skip/only/skipIf/each` | `it.effect.skip/only/skipIf/each` | Direct mapping |
