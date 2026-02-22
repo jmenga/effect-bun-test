@@ -1,4 +1,4 @@
-# effect-bun-test
+# effect-bun-testing
 
 Effect test helpers for Bun's built-in test runner.
 
@@ -14,7 +14,7 @@ Supports both Effect v3 and Effect v4 (effect-smol).
 ## Installation
 
 ```bash
-bun add effect-bun-test
+bun add effect-bun-testing
 ```
 
 ## Overview
@@ -42,11 +42,11 @@ bun add effect-bun-test
 
 ### Basic Effect tests
 
-Import `it` from `effect-bun-test` as a drop-in replacement for `bun:test`'s `it`. All standard `bun:test` functionality is preserved, with Effect methods added.
+Import `it` from `effect-bun-testing` as a drop-in replacement for `bun:test`'s `it`. All standard `bun:test` functionality is preserved, with Effect methods added.
 
 ```ts
 import { describe, expect } from "bun:test"
-import { it } from "effect-bun-test"
+import { it } from "effect-bun-testing"
 import { Effect } from "effect"
 
 describe("my tests", () => {
@@ -264,7 +264,7 @@ it.effect.each([1, 2, 3])("doubles %d", (n) =>
 `flakyTest` retries an Effect up to 10 times within a timeout (default 30 seconds):
 
 ```ts
-import { it } from "effect-bun-test"
+import { it } from "effect-bun-testing"
 import { Effect, Duration } from "effect"
 
 it.effect("retries flaky operations", () =>
@@ -327,7 +327,7 @@ For expensive resources (database connections, server instances) or tests that i
 **Effect v4:**
 ```ts
 import { describe, expect } from "bun:test"
-import { it, layer } from "effect-bun-test"
+import { it, layer } from "effect-bun-testing"
 import { Effect, Layer, ServiceMap } from "effect"
 
 interface Counter {
@@ -340,7 +340,7 @@ const Counter = ServiceMap.Service<Counter>("app/Counter")
 **Effect v3:**
 ```ts
 import { describe, expect } from "bun:test"
-import { it, layer } from "effect-bun-test"
+import { it, layer } from "effect-bun-testing"
 import { Context, Effect, Layer } from "effect"
 
 interface Counter {
@@ -400,7 +400,7 @@ Effect services are interfaces resolved from the environment, which makes them s
 **Effect v4:**
 ```ts
 import { beforeEach, describe, expect, mock } from "bun:test"
-import { it } from "effect-bun-test"
+import { it } from "effect-bun-testing"
 import { Effect, Layer, ServiceMap } from "effect"
 
 interface UserRepository {
@@ -418,7 +418,7 @@ const NotificationService = ServiceMap.Service<NotificationService>("app/Notific
 **Effect v3:**
 ```ts
 import { beforeEach, describe, expect, mock } from "bun:test"
-import { it } from "effect-bun-test"
+import { it } from "effect-bun-testing"
 import { Context, Effect, Layer } from "effect"
 
 interface UserRepository {
@@ -511,7 +511,7 @@ describe("notifyUser", () => {
 
 ## Assertion Utilities
 
-A set of assertion helpers is available at `effect-bun-test/utils`, ported from `@effect/vitest/utils`:
+A set of assertion helpers is available at `effect-bun-testing/utils`, ported from `@effect/vitest/utils`:
 
 ```ts
 import {
@@ -532,7 +532,7 @@ import {
   throws,             // Function throws
   throwsAsync,        // Async function throws
   fail                // Always throws (unconditional failure)
-} from "effect-bun-test/utils"
+} from "effect-bun-testing/utils"
 ```
 
 ## API Differences Between v3 and v4
@@ -547,7 +547,7 @@ import {
 
 ## API Mapping from @effect/vitest
 
-| @effect/vitest | effect-bun-test | Notes |
+| @effect/vitest | effect-bun-testing | Notes |
 |---|---|---|
 | `it.effect(name, (ctx) => ...)` | `it.effect(name, () => ...)` | No TestContext param (Bun has none) |
 | `it.scoped(name, (ctx) => ...)` | `it.scoped(name, () => ...)` | v3 only; v4 auto-scopes via `it.effect` |

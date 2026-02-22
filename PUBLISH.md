@@ -31,7 +31,7 @@ This creates a markdown file in `.changeset/` (e.g., `.changeset/funny-dogs-danc
 
 ```markdown
 ---
-"@jmenga/effect-bun-test": minor
+"effect-bun-testing": minor
 ---
 
 Add Schema-to-Arbitrary conversion for property-based testing
@@ -78,7 +78,7 @@ The release workflow needs an NPM access token to publish.
    - Click "Generate New Token" → "Granular Access Token"
    - Token name: `github-actions-effect-bun-test`
    - Expiration: choose your preference
-   - Packages and scopes: "Read and write", scoped to `@jmenga/effect-bun-test`
+   - Packages and scopes: "Read and write", scoped to `effect-bun-testing`
    - Click "Generate Token" and copy the value
 
 2. **Add the token to GitHub:**
