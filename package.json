@@ -1,8 +1,11 @@
 {
-  "name": "effect-bun-test",
+  "name": "@jmenga/effect-bun-test",
   "version": "0.1.0",
   "description": "Effect test helpers for Bun's built-in test runner",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
