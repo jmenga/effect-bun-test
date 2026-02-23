@@ -4,25 +4,37 @@ Effect test helpers for Bun's built-in test runner.
 
 This library ports the [`@effect/vitest`](https://github.com/Effect-TS/effect/tree/main/packages/vitest) API to [`bun:test`](https://bun.sh/docs/cli/test), providing first-class support for running Effect programs in Bun's test runner — including test services (`TestClock`, `TestConsole`), scoping, property-based testing, and all standard test modifiers.
 
-> For Effect v3, install `effect-bun-testing@legacy`.
-
-## Requirements
-
-- [Bun](https://bun.sh) >= 1.0
-- [Effect](https://effect.website) v4 (`^4.0.0-beta.10`)
-
 ## Installation
 
-```bash
-bun add effect-bun-testing
-```
+| Effect version | Install command |
+|---|---|
+| v4 (`^4.0.0-beta.10`) | `bun add effect-bun-testing` |
+| v3 (`^3.0.0`) | `bun add effect-bun-testing@legacy` |
+
+Requires [Bun](https://bun.sh) >= 1.0.
+
+## Version Differences
+
+The v4 and v3 packages follow the same API shape, but reflect upstream Effect changes:
+
+| Concern | v4 (latest) | v3 (legacy) |
+|---|---|---|
+| Define services | `ServiceMap.Service<T>("tag")` | `Context.GenericTag<T>("tag")` |
+| Error recovery | `Effect.catch(() => ...)` | `Effect.catchAll(() => ...)` |
+| TestClock import | `import { TestClock } from "effect/testing"` | `import * as TestClock from "effect/TestClock"` |
+| Scoping | Auto-scoped — `it.effect` and `it.live` handle scopes | Manual — use `it.scoped` / `it.scopedLive` for finalizers |
+| Result types | `assertSuccess_` / `assertFailure_` | `assertRight` / `assertLeft` |
+
+All code examples below use the **v4** API. For v3, substitute the equivalents from the table above.
 
 ## Overview
 
 | API | Description |
 |---|---|
-| `it.effect` | Run an Effect test with test services (auto-scoped) |
-| `it.live` | Run an Effect test without test services (auto-scoped) |
+| `it.effect` | Run an Effect test with test services (auto-scoped in v4) |
+| `it.live` | Run an Effect test without test services (auto-scoped in v4) |
+| `it.scoped` | Run an Effect test with test services, manually scoped (v3 only) |
+| `it.scopedLive` | Run an Effect test without test services, manually scoped (v3 only) |
 | `it.effect.skip` | Skip an Effect test |
 | `it.effect.only` | Run only this Effect test |
 | `it.effect.skipIf(cond)` | Skip when condition is truthy |
@@ -121,7 +133,7 @@ it.effect("advances time via TestClock", () =>
 
 ### Scoped tests
 
-`it.effect` and `it.live` auto-scope in Effect v4, so no special handling is needed for `Effect.addFinalizer` or other scoped resources:
+In **v4**, `it.effect` and `it.live` auto-scope, so no special handling is needed:
 
 ```ts
 it.effect("auto-scopes resources", () =>
@@ -131,6 +143,19 @@ it.effect("auto-scopes resources", () =>
     const before = yield* Ref.get(ref)
     expect(before).toBe(0)
     // finalizer runs automatically after this test
+  })
+)
+```
+
+In **v3**, use `it.scoped` (or `it.scopedLive`) when your test uses `Effect.addFinalizer` or other scoped resources:
+
+```ts
+it.scoped("runs finalizers at end of test", () =>
+  Effect.gen(function*() {
+    const ref = yield* Ref.make(0)
+    yield* Effect.addFinalizer(() => Ref.set(ref, 99))
+    const before = yield* Ref.get(ref)
+    expect(before).toBe(0)
   })
 )
 ```
@@ -163,7 +188,7 @@ it.live("uses real clock", () =>
 
 ### Modifiers
 
-All standard `bun:test` modifiers are available on `it.effect`:
+All standard `bun:test` modifiers are available on `it.effect` (and `it.scoped` in v3):
 
 ```ts
 // Skip a test
@@ -420,6 +445,8 @@ describe("notifyUser", () => {
 
 A set of assertion helpers is available at `effect-bun-testing/utils`, ported from `@effect/vitest/utils`:
 
+**v4:**
+
 ```ts
 import {
   assertEquals,       // Compare via Effect's Equal.equals
@@ -443,12 +470,38 @@ import {
 } from "effect-bun-testing/utils"
 ```
 
+**v3:**
+
+```ts
+import {
+  assertEquals,       // Compare via Effect's Equal.equals
+  assertTrue,         // Truthy assertion
+  assertFalse,        // Falsy assertion
+  assertNone,         // Option is None
+  assertSome,         // Option is Some with expected value
+  assertRight,        // Either is Right with expected value
+  assertLeft,         // Either is Left with expected value
+  assertExitSuccess,  // Exit is Success with expected value
+  assertExitFailure,  // Exit is Failure with expected Cause
+  deepStrictEqual,    // Structural equality (toStrictEqual)
+  strictEqual,        // Reference equality (toBe)
+  assertInstanceOf,   // instanceof check
+  assertInclude,      // String contains substring
+  assertMatch,        // String matches regex
+  throws,             // Function throws
+  throwsAsync,        // Async function throws
+  fail                // Always throws (unconditional failure)
+} from "effect-bun-testing/utils"
+```
+
 ## API Mapping from @effect/vitest
 
 | @effect/vitest | effect-bun-testing | Notes |
 |---|---|---|
 | `it.effect(name, (ctx) => ...)` | `it.effect(name, () => ...)` | No TestContext param (Bun has none) |
+| `it.scoped(name, (ctx) => ...)` | `it.scoped(name, () => ...)` | v3 only — v4 auto-scopes in `it.effect` |
 | `it.live(name, (ctx) => ...)` | `it.live(name, () => ...)` | Same |
+| `it.scopedLive(name, (ctx) => ...)` | `it.scopedLive(name, () => ...)` | v3 only — v4 auto-scopes in `it.live` |
 | `it.effect.fails` | `it.effect.failing` | Bun's name; `fails` alias also available |
 | `it.effect.runIf(cond)` | `it.effect.if(cond)` | Bun's name; `runIf` alias also available |
 | `it.effect.skip/only/skipIf/each` | `it.effect.skip/only/skipIf/each` | Direct mapping |
