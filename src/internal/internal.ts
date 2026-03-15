@@ -303,7 +303,7 @@ export const layer = <R, E, const ExcludeTestServices extends boolean = false>(
     const memoMap = options?.memoMap ?? Layer.makeMemoMapUnsafe()
     const scope = Scope.makeUnsafe()
     const timeout = options?.timeout
-      ? Duration.toMillis(options.timeout)
+      ? Duration.toMillis(Duration.fromInputUnsafe(options.timeout))
       : undefined
 
     const serviceMapEffect = pipe(

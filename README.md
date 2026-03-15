@@ -13,6 +13,8 @@ This library ports the [`@effect/vitest`](https://github.com/Effect-TS/effect/tr
 
 Requires [Bun](https://bun.sh) >= 1.0.
 
+> **Note:** While Effect v4 remains in beta, upstream API changes may require corresponding updates to this library. Breaking changes will be released as patch versions during the beta period. Pin to an exact version if you need stability.
+
 ## Version Differences
 
 The v4 and v3 packages follow the same API shape, but reflect upstream Effect changes:

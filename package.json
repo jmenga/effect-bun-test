@@ -1,6 +1,6 @@
 {
   "name": "effect-bun-testing",
-  "version": "4.0.0",
+  "version": "4.0.1",
   "description": "Effect test helpers for Bun's built-in test runner",
   "type": "module",
   "main": "./dist/index.js",
@@ -33,7 +33,7 @@
     "@changesets/changelog-github": "^0.5.2",
     "@changesets/cli": "^2.29.8",
     "@types/bun": "^1.2.0",
-    "effect": "4.0.0-beta.10",
+    "effect": "4.0.0-beta.31",
     "fast-check": "^3.23.0"
   },
   "scripts": {
